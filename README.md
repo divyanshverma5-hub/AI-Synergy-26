@@ -40,6 +40,22 @@ frontend/           React + Vite single-page app
 docs/               API reference, data schema, ML integration guide
 ```
 
+## Screens
+
+The top navigation keeps only the three screens of the main workflow:
+
+| Route | Screen | Purpose |
+| --- | --- | --- |
+| `/` | Home | What the tool does, the upload button, and the three-step workflow. |
+| `/analyse` | Analyse a Bill | Upload a PDF, extract clauses, run the analysis. |
+| `/analyses` | Past Analyses | The user's own analyses, with the seeded demonstration jobs listed separately. |
+| `/analyses/:id` | Analysis results | Findings for one job: conflicts, weakened safeguards, rights flags and review actions. |
+
+The deeper tool screens are still available under the **More tools** menu in the header, and
+each one is deep-linkable: `/health`, `/explorer`, `/alerts`, `/review`, `/implications`,
+`/metrics`, `/audit`, `/documents/:id`. Legacy paths such as `/upload` and `/dashboard`
+redirect to their new equivalents, so existing links keep working.
+
 ## Requirements
 
 - Python 3.11+ (developed on 3.13)

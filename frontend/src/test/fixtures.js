@@ -193,3 +193,43 @@ export const diffFixture = {
   similarity: 0.31,
   is_demonstration: true,
 }
+
+/**
+ * A document and analysis the *user* uploaded: `is_demonstration` is false, so
+ * the UI must treat these as the user's own work and keep them apart from the
+ * seeded demonstration material above.
+ */
+export const userDocumentFixture = {
+  id: 'doc-user',
+  title: 'My Uploaded Test Bill',
+  filename: 'my-bill.pdf',
+  status: 'analysed',
+  page_count: 2,
+  file_size: 4096,
+  is_demonstration: false,
+  version_label: null,
+  document_date: null,
+  legal_status: 'proposed',
+  source_reference: null,
+  created_at: '2026-02-01T10:00:00Z',
+  text: 'MY UPLOADED BILL\n4. Licensing requirement.',
+  content_type: 'application/pdf',
+  clause_count: 3,
+  analysis_count: 1,
+  extraction_error: null,
+}
+
+export const userAnalysisFixture = {
+  id: 'ana-user',
+  document_id: 'doc-user',
+  status: 'completed',
+  provider: 'mock',
+  progress: 100,
+  error: null,
+  is_demonstration: true,
+  clause_count: 3,
+  finding_count: 4,
+  started_at: '2026-02-01T10:00:01Z',
+  finished_at: '2026-02-01T10:00:03Z',
+  created_at: '2026-02-01T10:00:00Z',
+}

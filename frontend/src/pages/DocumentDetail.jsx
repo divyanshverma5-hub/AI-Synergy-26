@@ -36,7 +36,7 @@ export default function DocumentDetail() {
       <>
         <PageHeader title="Document" />
         <ErrorState error={document.error} onRetry={document.refetch} />
-        <Link to="/upload">← Back to upload</Link>
+        <Link to="/analyse">← Back to Analyse a Bill</Link>
       </>
     )
   }
@@ -48,7 +48,7 @@ export default function DocumentDetail() {
     <>
       <PageHeader title={doc.title}>
         <p>
-          <Link to="/upload">Upload</Link> · {doc.filename} · {doc.page_count} page
+          <Link to="/analyse">Upload</Link> · {doc.filename} · {doc.page_count} page
           {doc.page_count === 1 ? '' : 's'} · {(doc.file_size / 1024).toFixed(0)} KB
         </p>
       </PageHeader>

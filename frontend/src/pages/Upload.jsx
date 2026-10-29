@@ -1,10 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { DemoBadge, JobStatusBadge } from '../components/Badges'
-import { Alert, EmptyState, ErrorState, Loading } from '../components/Feedback'
+import { Alert, ErrorState } from '../components/Feedback'
 import { PageHeader } from '../components/Layout'
-import { useAsync } from '../components/hooks'
 
 const MAX_MB = 20
 
@@ -23,9 +21,6 @@ export default function Upload() {
   const [error, setError] = useState(null)
   const [uploaded, setUploaded] = useState(null)
   const [autoAnalyse, setAutoAnalyse] = useState(true)
-
-  const documents = useAsync(() => api.listDocuments(), [])
-  const analyses = useAsync(() => api.listAnalyses({ limit: 8 }), [])
 
   const onFileChange = useCallback((event) => {
     const chosen = event.target.files?.[0] || null
@@ -68,7 +63,6 @@ export default function Upload() {
         setUploaded(document)
         setFile(null)
         if (fileInput.current) fileInput.current.value = ''
-        documents.refetch()
         if (autoAnalyse) {
           const analysis = await api.createAnalysis({ document_id: document.id })
           navigate(`/analyses/${analysis.id}`)
@@ -80,7 +74,7 @@ export default function Upload() {
         setBusy(false)
       }
     },
-    [file, meta, autoAnalyse, documents, navigate],
+    [file, meta, autoAnalyse, navigate],
   )
 
   const runAnalysis = useCallback(
@@ -101,11 +95,11 @@ export default function Upload() {
 
   return (
     <>
-      <PageHeader title="Upload and analyse">
+      <PageHeader title="Analyse a Bill">
         <p>
-          Upload a proposed bill or draft law as a PDF. The server extracts the text, splits it
-          into clauses, and runs the analysis pipeline. The analysis provider is selected by the
-          server's <span className="mono">ANALYSIS_PROVIDER</span> setting.
+          Upload a proposed bill or draft law as a PDF. We read the text, split it into clauses and
+          check each clause against existing provisions. You can watch progress and read the
+          findings straight after.
         </p>
       </PageHeader>
 
@@ -133,8 +127,7 @@ export default function Upload() {
         </Alert>
       ) : null}
 
-      <div className="split">
-        <form className="card" onSubmit={submit}>
+      <form className="card upload-card" onSubmit={submit}>
           <h2>New document</h2>
           <label className="field">
             <span>PDF file</span>
@@ -228,115 +221,7 @@ export default function Upload() {
               </span>
             ) : null}
           </div>
-        </form>
-
-        <div>
-          <div className="card">
-            <div className="card-header">
-              <h3>Documents</h3>
-              <button type="button" className="btn small" onClick={documents.refetch}>
-                Refresh
-              </button>
-            </div>
-            {documents.loading && !documents.data ? <Loading /> : null}
-            {documents.error ? (
-              <ErrorState error={documents.error} onRetry={documents.refetch} />
-            ) : null}
-            {documents.data && documents.data.length === 0 ? (
-              <EmptyState>No documents uploaded yet.</EmptyState>
-            ) : null}
-            {documents.data && documents.data.length > 0 ? (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th>Status</th>
-                      <th>Pages</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {documents.data.map((doc) => (
-                      <tr key={doc.id}>
-                        <td>
-                          <Link to={`/documents/${doc.id}`}>{doc.title}</Link>
-                          {doc.is_demonstration ? (
-                            <>
-                              {' '}
-                              <DemoBadge />
-                            </>
-                          ) : null}
-                          <div className="faint small">
-                            {doc.version_label || 'no version'} ·{' '}
-                            {doc.legal_status || 'status unknown'}
-                          </div>
-                        </td>
-                        <td>
-                          <span className="badge neutral">{doc.status}</span>
-                        </td>
-                        <td>{doc.page_count}</td>
-                        <td className="nowrap">
-                          <button
-                            type="button"
-                            className="btn small"
-                            onClick={() => runAnalysis(doc.id)}
-                            disabled={busy}
-                          >
-                            Analyse
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="card">
-            <div className="card-header">
-              <h3>Recent analysis jobs</h3>
-              <button type="button" className="btn small" onClick={analyses.refetch}>
-                Refresh
-              </button>
-            </div>
-            {analyses.loading && !analyses.data ? <Loading /> : null}
-            {analyses.error ? <ErrorState error={analyses.error} onRetry={analyses.refetch} /> : null}
-            {analyses.data && analyses.data.length === 0 ? (
-              <EmptyState>No analysis jobs yet.</EmptyState>
-            ) : null}
-            {analyses.data && analyses.data.length > 0 ? (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Job</th>
-                      <th>Status</th>
-                      <th>Progress</th>
-                      <th>Findings</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analyses.data.map((analysis) => (
-                      <tr key={analysis.id}>
-                        <td className="mono">
-                          <Link to={`/analyses/${analysis.id}`}>{analysis.id.slice(0, 8)}</Link>
-                        </td>
-                        <td>
-                          <JobStatusBadge status={analysis.status} />
-                        </td>
-                        <td>{analysis.progress}%</td>
-                        <td>{analysis.finding_count}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
+      </form>
     </>
   )
 }

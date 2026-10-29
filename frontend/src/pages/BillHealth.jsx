@@ -141,7 +141,7 @@ export default function BillHealth() {
 
       {!analysisId ? (
         <EmptyState>
-          No completed analysis is available. <Link to="/upload">Upload a bill</Link> and run an
+          No completed analysis is available. <Link to="/analyse">Upload a bill</Link> and run an
           analysis first.
         </EmptyState>
       ) : null}
