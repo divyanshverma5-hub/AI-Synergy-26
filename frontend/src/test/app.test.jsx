@@ -17,6 +17,8 @@ import {
   documentFixture,
   findingFixture,
   metricsFixture,
+  userAnalysisFixture,
+  userDocumentFixture,
 } from './fixtures'
 
 /**
@@ -43,17 +45,17 @@ function renderApp(path = '/') {
 function stubApi(overrides = {}) {
   const stub = {
     health: vi.fn(async () => ({ status: 'ok' })),
-    listDocuments: vi.fn(async () => [documentFixture]),
+    listDocuments: vi.fn(async () => [documentFixture, userDocumentFixture]),
     getDocument: vi.fn(async () => documentFixture),
     getClauses: vi.fn(async () => [findingFixture.clause]),
     getClauseDiff: vi.fn(async () => diffFixture),
     uploadDocument: vi.fn(async () => documentFixture),
-    listAnalyses: vi.fn(async () => [analysisFixture]),
+    listAnalyses: vi.fn(async () => [analysisFixture, userAnalysisFixture]),
     createAnalysis: vi.fn(async () => analysisFixture),
     getAnalysis: vi.fn(async () => analysisFixture),
-    getResults: vi.fn(async () => ({
-      analysis: analysisFixture,
-      document: documentFixture,
+    getResults: vi.fn(async (id) => ({
+      analysis: id === 'ana-user' ? userAnalysisFixture : analysisFixture,
+      document: id === 'ana-user' ? userDocumentFixture : documentFixture,
       counts: {
         total: 1,
         conflicts: 0,
@@ -102,24 +104,38 @@ beforeEach(() => {
 })
 
 describe('navigation', () => {
-  it('renders every main navigation link and the disclaimer', async () => {
+  it('shows only Home, Analyse a Bill and Past Analyses in the main navigation', async () => {
     stubApi()
     renderApp('/')
     const nav = screen.getByRole('navigation', { name: 'Main' })
-    for (const label of [
-      'Dashboard',
-      'Upload & analyse',
-      'Bill health',
-      'Clause explorer',
-      'Safeguard & rights alerts',
-      'Human review',
-      'Implications',
-      'Model metrics',
-      'Audit log',
-    ]) {
+    for (const label of ['Home', 'Analyse a Bill', 'Past Analyses']) {
       expect(within(nav).getByRole('link', { name: label })).toBeInTheDocument()
     }
+    // The deeper tools must no longer clutter the primary navigation.
+    for (const label of ['Bill health', 'Clause explorer', 'Model metrics', 'Audit log']) {
+      expect(within(nav).queryByRole('link', { name: label })).not.toBeInTheDocument()
+    }
     expect(screen.getAllByText(/does not provide legal advice/i).length).toBeGreaterThan(0)
+  })
+
+  it('opens the secondary tools menu and navigates to a tool', async () => {
+    stubApi()
+    const user = userEvent.setup()
+    renderApp('/')
+    const nav = screen.getByRole('navigation', { name: 'Main' })
+
+    await user.click(within(nav).getByRole('button', { name: /More tools/i }))
+    const menu = await screen.findByRole('menu', { name: /More tools/i })
+    expect(within(menu).getByRole('menuitem', { name: 'Model metrics' })).toBeInTheDocument()
+
+    await user.click(within(menu).getByRole('menuitem', { name: 'Audit log' }))
+    expect(await screen.findByRole('heading', { name: /Audit log/i })).toBeInTheDocument()
+  })
+
+  it('redirects the legacy upload path to Analyse a Bill', async () => {
+    stubApi()
+    renderApp('/upload')
+    expect(await screen.findByRole('heading', { name: 'Analyse a Bill' })).toBeInTheDocument()
   })
 
   it('shows a not-found page for an unknown route', async () => {
@@ -129,27 +145,58 @@ describe('navigation', () => {
   })
 })
 
-describe('dashboard', () => {
-  it('shows counts computed from the API and links into the workflow', async () => {
-    const stub = stubApi()
+describe('home', () => {
+  it('shows the project name, explanation, upload button and three-step workflow', async () => {
+    stubApi()
     renderApp('/')
-    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
-    expect(stub.dashboard).toHaveBeenCalled()
-    expect((await screen.findAllByText('19')).length).toBeGreaterThan(0)
-    expect(screen.getByRole('link', { name: /Art\. 21: 1/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Art\. 19: 2/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Open review center/ })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Rights Regression Radar' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Upload a bill \(PDF\)/i })).toHaveAttribute(
+      'href',
+      '/analyse',
+    )
+    expect(screen.getByRole('heading', { name: /How it works/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Upload a PDF bill/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /We analyse each clause/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Review the findings/i })).toBeInTheDocument()
   })
 
   it('surfaces a backend failure with a retry control', async () => {
     stubApi({
-      dashboard: vi.fn(async () => {
+      listAnalyses: vi.fn(async () => {
         throw new apiModule.ApiError('Could not reach the backend.', 0)
       }),
     })
     renderApp('/')
     expect(await screen.findByText(/Could not reach the backend/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Try again/i })).toBeInTheDocument()
+  })
+})
+
+describe('past analyses', () => {
+  it("lists the user's own analyses separately from demonstration examples", async () => {
+    stubApi()
+    renderApp('/analyses')
+    expect(await screen.findByRole('heading', { name: 'Past Analyses' })).toBeInTheDocument()
+
+    const mine = screen.getByRole('heading', { name: /Your analyses/i }).closest('section')
+    expect(within(mine).getByRole('link', { name: 'My Uploaded Test Bill' })).toBeInTheDocument()
+    // The seeded demonstration bill must NOT be presented as the user's own.
+    expect(
+      within(mine).queryByRole('link', { name: documentFixture.title }),
+    ).not.toBeInTheDocument()
+
+    const demo = screen
+      .getByRole('heading', { name: /Demonstration examples/i })
+      .closest('section')
+    expect(within(demo).getByRole('link', { name: documentFixture.title })).toBeInTheDocument()
+  })
+
+  it('shows an empty state when the user has no analyses of their own', async () => {
+    stubApi({ listAnalyses: vi.fn(async () => [analysisFixture]) })
+    renderApp('/analyses')
+    expect(await screen.findByText(/You have not analysed a bill yet/i)).toBeInTheDocument()
   })
 })
 
@@ -195,14 +242,48 @@ describe('upload', () => {
   })
 })
 
-describe('analysis detail', () => {
-  it('shows status, counts and links for a completed job', async () => {
+describe('analysis results', () => {
+  it('shows conflicts, safeguards, rights flags and evidence for a completed job', async () => {
     stubApi()
     renderApp('/analyses/ana1')
-    expect(await screen.findByRole('heading', { name: 'Analysis job' })).toBeInTheDocument()
+
+    expect(await screen.findByRole('heading', { name: documentFixture.title })).toBeInTheDocument()
     expect(screen.getAllByText('completed').length).toBeGreaterThan(0)
     expect(await screen.findByText(/Demonstration analysis/i)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Bill health summary/i })).toBeInTheDocument()
+
+    // Category tabs are present and switch the visible findings.
+    const tabs = screen.getByRole('tablist', { name: /Finding categories/i })
+    expect(within(tabs).getByRole('tab', { name: 'Conflicts' })).toBeInTheDocument()
+    expect(within(tabs).getByRole('tab', { name: 'Weakened safeguards' })).toBeInTheDocument()
+    expect(within(tabs).getByRole('tab', { name: 'Rights flags' })).toBeInTheDocument()
+
+    // The seeded finding is a weakened safeguard, so that tab lists it.
+    await userEvent.setup().click(within(tabs).getByRole('tab', { name: 'Weakened safeguards' }))
+    expect(await screen.findByText(/Removes safeguard/i)).toBeInTheDocument()
+
+    // The first finding of a tab opens automatically, revealing evidence and
+    // the review actions without an extra click.
+    expect(await screen.findByText(/Evidence and citations/i)).toBeInTheDocument()
+    expect(screen.getByText(/Demo source/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Save decision/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Open in clause explorer/i })).toBeInTheDocument()
+
+    // Collapsing and re-opening the card works both ways.
+    const header = screen.getByRole('button', { name: /Section 3 — Amendment of section 9/i })
+    await userEvent.setup().click(header)
+    await waitFor(() =>
+      expect(screen.queryByText(/Evidence and citations/i)).not.toBeInTheDocument(),
+    )
+  })
+
+  it('shows an empty state for a category with no findings', async () => {
+    stubApi()
+    renderApp('/analyses/ana1')
+    const tabs = await screen.findByRole('tablist', { name: /Finding categories/i })
+    await userEvent.setup().click(within(tabs).getByRole('tab', { name: 'Conflicts' }))
+    expect(
+      await screen.findByText(/No clause was classified as conflicting/i),
+    ).toBeInTheDocument()
   })
 
   it('explains a failed job and shows the recorded error', async () => {
@@ -345,7 +426,7 @@ describe('review center', () => {
         expect.objectContaining({ finding_id: 'find1', decision: 'confirm' }),
       ),
     )
-    expect(await screen.findByText(/Decision saved/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Saved a/i)).toBeInTheDocument()
   })
 
   it('requires a reason before a relabel can be saved', async () => {
