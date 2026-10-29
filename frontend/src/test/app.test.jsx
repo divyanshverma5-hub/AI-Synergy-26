@@ -69,13 +69,15 @@ function stubApi(overrides = {}) {
       },
       findings: [findingFixture],
     })),
-    listFindings: vi.fn(async () => ({
-      items: [findingFixture],
-      total: 1,
-      page: 1,
-      page_size: 10,
-      pages: 1,
-    })),
+    listFindings: vi.fn(async (params = {}) => {
+      // Mirror the server: `q` is a substring filter over clause text.
+      const haystack = `${findingFixture.clause?.heading || ''} ${
+        findingFixture.clause?.text || ''
+      }`.toLowerCase()
+      const matches = !params.q || haystack.includes(params.q.toLowerCase())
+      const items = matches ? [findingFixture] : []
+      return { items, total: items.length, page: 1, page_size: 10, pages: 1 }
+    }),
     getFinding: vi.fn(async () => findingFixture),
     listReviews: vi.fn(async () => ({ items: [], total: 0, page: 1, page_size: 25, pages: 1 })),
     createReview: vi.fn(async () => ({ id: 'rev-new', decision: 'confirm' })),
@@ -274,6 +276,12 @@ describe('clause explorer', () => {
 
     await user.type(screen.getByLabelText(/Search clause text/i), 'zzzz-no-match')
     await user.click(screen.getByRole('button', { name: 'Search' }))
+    // The query is sent to the server, which filters across all findings.
+    await waitFor(() =>
+      expect(stub.listFindings).toHaveBeenCalledWith(
+        expect.objectContaining({ q: 'zzzz-no-match' }),
+      ),
+    )
     expect(await screen.findByText(/No findings match/i)).toBeInTheDocument()
   })
 

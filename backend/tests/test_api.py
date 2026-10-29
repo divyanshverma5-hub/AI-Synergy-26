@@ -181,6 +181,30 @@ def test_findings_filters_and_pagination(client, analysed_document):
     ).json()
     assert all("article_21" in item["rights_tags"] for item in by_rights["items"])
 
+    # Free-text search runs over the whole result set, not just one page.
+    searched = client.get(
+        "/api/findings", params={"analysis_id": analysis_id, "q": "appeal"}
+    ).json()
+    assert searched["total"] >= 1
+    for item in searched["items"]:
+        haystack = " ".join(
+            filter(
+                None,
+                (
+                    item["clause"].get("text"),
+                    item["clause"].get("heading"),
+                    item["clause"].get("section_id"),
+                ),
+            )
+        ).lower()
+        assert "appeal" in haystack
+
+    no_match = client.get(
+        "/api/findings", params={"analysis_id": analysis_id, "q": "zzz-no-such-text-zzz"}
+    ).json()
+    assert no_match["total"] == 0
+    assert no_match["items"] == []
+
 
 def test_finding_detail_unknown_id_404(client):
     assert client.get("/api/findings/nope").status_code == 404

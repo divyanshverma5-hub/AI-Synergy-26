@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..db import get_session
@@ -142,6 +142,7 @@ def list_findings(
     health_category: str | None = Query(default=None),
     rights_tag: str | None = Query(default=None),
     requires_review: bool | None = Query(default=None),
+    q: str | None = Query(default=None, description="Substring search over clause text, heading and section id."),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=200),
 ) -> PaginatedFindings:
@@ -163,6 +164,16 @@ def list_findings(
         stmt = stmt.where(Finding.requires_review.is_(requires_review))
     if rights_tag:
         stmt = stmt.where(Finding.rights_tags.like(f'%"{rights_tag}"%'))
+    if q and q.strip():
+        # Search runs over the whole result set, not just the current page.
+        needle = f"%{q.strip().lower()}%"
+        stmt = stmt.join(Clause, Finding.clause_id == Clause.id).where(
+            or_(
+                func.lower(Clause.text).like(needle),
+                func.lower(func.coalesce(Clause.heading, "")).like(needle),
+                func.lower(func.coalesce(Clause.section_id, "")).like(needle),
+            )
+        )
 
     total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = list(

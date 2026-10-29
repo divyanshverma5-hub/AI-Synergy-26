@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { LABEL_TEXT, PREDICTED_LABELS, RIGHTS_SHORT } from '../constants'
@@ -30,23 +30,14 @@ export default function ClauseExplorer() {
         label: label || undefined,
         document_id: documentId || undefined,
         analysis_id: analysisId || undefined,
+        q: search.trim() || undefined,
       }),
-    [page, label, documentId, analysisId],
+    [page, label, documentId, analysisId, search],
   )
 
-  // `q` filters the current page client-side over clause text; the server-side
-  // filters (label, document, analysis) drive the query itself.
-  const items = useMemo(() => {
-    const rows = list.data?.items || []
-    if (!search.trim()) return rows
-    const needle = search.trim().toLowerCase()
-    return rows.filter(
-      (finding) =>
-        (finding.clause?.text || '').toLowerCase().includes(needle) ||
-        (finding.clause?.heading || '').toLowerCase().includes(needle) ||
-        (finding.clause?.section_id || '').toLowerCase().includes(needle),
-    )
-  }, [list.data, search])
+  // The server filters by clause text (`q`), so the page already holds only
+  // matching findings. No client-side re-filtering.
+  const items = list.data?.items || []
 
   useEffect(() => {
     if (!selectedId && items.length > 0) setSelectedId(items[0].id)

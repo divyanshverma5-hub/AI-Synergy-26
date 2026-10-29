@@ -144,6 +144,7 @@ Query parameters (all optional):
 | `rights_tag` | `article_14`, `article_19`, `article_21`. |
 | `requires_review` | `true` / `false`. |
 | `health_category` | `clear`, `needs_review`, `safeguard_removed`, `direct_conflict`. |
+| `q` | Case-insensitive substring search over clause text, heading and section id. Applied across the whole result set, not just the current page. |
 
 Returns `PaginatedFindings`. Each item is a `FindingSummary` carrying its
 `clause`, `provision` (or `null`), `evidence` list, `implications`, `rights_tags`

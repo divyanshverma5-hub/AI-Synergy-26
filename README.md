@@ -89,6 +89,14 @@ cd frontend && npm test
 
 Both suites run offline and do not require a live server.
 
+An end-to-end smoke test drives the full workflow (upload → analysis → findings
+→ review → audit → metrics) against a running backend:
+
+```bash
+.venv/bin/python -m uvicorn app.main:app --port 8000 --app-dir backend &
+.venv/bin/python scripts/e2e_smoke.py     # 50 checks
+```
+
 ## Configuration
 
 All settings are environment variables. Defaults work for local development.
