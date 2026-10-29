@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Local data: SQLite database and uploaded PDFs
+backend/data/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Environment and editor
+.env
+.env.local
+.DS_Store
+*.log
